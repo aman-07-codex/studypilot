@@ -49,3 +49,20 @@ export interface DashboardData {
   stats: DashboardStats;
   subjects: DashboardSubject[];
 }
+
+export interface Exam {
+  id: string;
+  subject_id: string;
+  user_id: string;
+  exam_date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExamWithSubject extends Exam {
+  subject: {
+    name: string;
+    color_code: string | null;
+  };
+}

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { BookOpen, LogOut, LayoutDashboard, Book } from "lucide-react";
+import { BookOpen, LogOut, LayoutDashboard, Book, Calendar } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function Layout() {
@@ -38,9 +38,17 @@ export function Layout() {
             <Book className="h-5 w-5" />
             <span className="font-medium">Subjects</span>
           </Link>
-          <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 opacity-50 cursor-not-allowed">
-            <span className="font-medium">Exams (Coming Soon)</span>
-          </div>
+          <Link
+            to="/exams"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+              location.pathname.startsWith("/exams")
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Calendar className="h-5 w-5" />
+            <span className="font-medium">Exams</span>
+          </Link>
         </div>
 
         <div className="border-t pt-4">

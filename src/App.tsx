@@ -7,6 +7,7 @@ import { Signup } from "./pages/Signup";
 import { Dashboard } from "./pages/Dashboard";
 import Subjects from "./pages/Subjects";
 import SubjectDetail from "./pages/SubjectDetail";
+import Exams from "./pages/Exams";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="subjects" element={<Subjects />} />
             <Route path="subjects/:subjectId" element={<SubjectDetail />} />
+            <Route path="exams" element={<Exams />} />
           </Route>
         </Routes>
       </BrowserRouter>
