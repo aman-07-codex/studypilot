@@ -5,6 +5,8 @@ import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { Dashboard } from "./pages/Dashboard";
+import Subjects from "./pages/Subjects";
+import SubjectDetail from "./pages/SubjectDetail";
 
 export default function App() {
   return (
@@ -23,7 +25,8 @@ export default function App() {
             }
           >
             <Route index element={<Dashboard />} />
-            {/* Future routes will go here */}
+            <Route path="subjects" element={<Subjects />} />
+            <Route path="subjects/:subjectId" element={<SubjectDetail />} />
           </Route>
         </Routes>
       </BrowserRouter>

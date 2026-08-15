@@ -1,9 +1,10 @@
-import { Link, Outlet } from "react-router-dom";
-import { BookOpen, LogOut, LayoutDashboard } from "lucide-react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { BookOpen, LogOut, LayoutDashboard, Book } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function Layout() {
   const { signOut, user } = useAuth();
+  const location = useLocation();
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -17,15 +18,26 @@ export function Layout() {
         <div className="flex-1 space-y-1">
           <Link
             to="/"
-            className="flex items-center gap-3 rounded-lg bg-indigo-50 px-3 py-2 text-indigo-700 transition-colors"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+              location.pathname === "/"
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
           >
             <LayoutDashboard className="h-5 w-5" />
             <span className="font-medium">Dashboard</span>
           </Link>
-          {/* Placeholders for future routes */}
-          <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 opacity-50 cursor-not-allowed">
-            <span className="font-medium">Subjects (Coming Soon)</span>
-          </div>
+          <Link
+            to="/subjects"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+              location.pathname.startsWith("/subjects")
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Book className="h-5 w-5" />
+            <span className="font-medium">Subjects</span>
+          </Link>
           <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 opacity-50 cursor-not-allowed">
             <span className="font-medium">Exams (Coming Soon)</span>
           </div>

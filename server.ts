@@ -1,6 +1,8 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import subjectRouter from "./src/server/routes/subjectRoutes";
+import { subjectTopicsRouter, topicRouter } from "./src/server/routes/topicRoutes";
 
 async function startServer() {
   const app = express();
@@ -14,7 +16,10 @@ async function startServer() {
     res.json({ status: "ok" });
   });
   
-  // Future API routes for Subjects, Topics, Exams, Gemini will be mounted here.
+  apiRouter.use("/subjects", subjectRouter);
+  apiRouter.use("/subjects/:subjectId/topics", subjectTopicsRouter);
+  apiRouter.use("/topics", topicRouter);
+
   app.use("/api", apiRouter);
 
   // Vite middleware for development
