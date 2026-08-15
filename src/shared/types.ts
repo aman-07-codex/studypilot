@@ -28,3 +28,24 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
+
+export interface DashboardStats {
+  total_subjects: number;
+  total_topics: number;
+  completed_topics: number;
+  overall_percentage: number;
+}
+
+export interface DashboardSubject {
+  id: string;
+  name: string;
+  color_code: string | null;
+  total_topics: number;
+  completed_topics: number;
+  completion_percentage: number;
+}
+
+export interface DashboardData {
+  stats: DashboardStats;
+  subjects: DashboardSubject[];
+}
