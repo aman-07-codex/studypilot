@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StudyMaterial } from '../shared/types';
 import { fetchWithAuth } from '../lib/apiClient';
-import { UploadCloud, FileText, File, Trash2, Download, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
-import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
+import { UploadCloud, FileText, File, Trash2, Download, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface MaterialManagerProps {
   subjectId: string;
   topicId?: string; // If provided, it's for notes. If absent, it's for subject PYQs.
   materialType: 'note' | 'pyq';
+  title?: string;
 }
 
-export function MaterialManager({ subjectId, topicId, materialType }: MaterialManagerProps) {
+export function MaterialManager({ subjectId, topicId, materialType, title = 'Materials' }: MaterialManagerProps) {
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -41,174 +39,205 @@ export function MaterialManager({ subjectId, topicId, materialType }: MaterialMa
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size must be less than 10MB');
+    if (files.length > 5) {
+      setError('You can only upload up to 5 files at once.');
       return;
+    }
+
+    const formData = new FormData();
+    formData.append('subject_id', subjectId);
+    if (topicId) formData.append('topic_id', topicId);
+    formData.append('material_type', materialType);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 10 * 1024 * 1024) {
+        setError(`File ${file.name} exceeds the 10MB limit.`);
+        return;
+      }
+      formData.append('files', file);
     }
 
     try {
       setUploading(true);
       setError(null);
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('subject_id', subjectId);
-      formData.append('material_type', materialType);
-      if (topicId) {
-        formData.append('topic_id', topicId);
-      }
-
-      const uploadRes = await fetch('/api/materials/upload', {
+      
+      const response = await fetchWithAuth('/api/materials', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('studypilot_token')}`
-        },
-        body: formData
+        body: formData // fetchWithAuth will automatically omit Content-Type so the browser can set multipart boundary
       });
 
-      if (!uploadRes.ok) {
-        const errorData = await uploadRes.json();
-        throw new Error(errorData.error || 'Upload failed');
+      if (response.errors && response.errors.length > 0) {
+         setError(`Some files failed to upload: ${response.errors.map((e: any) => e.file).join(', ')}`);
       }
 
-      const newMaterial = await uploadRes.json();
-      setMaterials([...materials, newMaterial]);
-      
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      if (response.results && response.results.length > 0) {
+        setMaterials([...response.results, ...materials]);
       }
     } catch (err: any) {
-      setError(err.message || 'Upload failed');
+      setError(err.message || 'Failed to upload materials');
     } finally {
       setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this material?')) return;
+  const handleDelete = async (materialId: string, fileName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${fileName}"?`)) return;
+
     try {
-      await fetchWithAuth(`/api/materials/${id}`, { method: 'DELETE' });
-      setMaterials(materials.filter(m => m.id !== id));
+      await fetchWithAuth(`/api/materials/${materialId}`, { method: 'DELETE' });
+      setMaterials(materials.filter(m => m.id !== materialId));
     } catch (err: any) {
-      alert(err.message || 'Failed to delete');
+      alert(err.message || 'Failed to delete material');
     }
   };
 
-  // Check if we need to poll for extraction status
-  useEffect(() => {
-    const hasPending = materials.some(m => m.extraction_status === 'pending' || m.extraction_status === 'processing');
-    if (hasPending) {
-      const interval = setInterval(loadMaterials, 3000);
-      return () => clearInterval(interval);
+  const handleDownload = async (materialId: string) => {
+    try {
+      const { url } = await fetchWithAuth(`/api/materials/${materialId}/download`);
+      window.open(url, '_blank');
+    } catch (err: any) {
+      alert(err.message || 'Failed to download material');
     }
-  }, [materials]);
+  };
 
-  const getStatusBadge = (status: string) => {
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType === 'application/pdf') return <FileText className="h-5 w-5 text-red-500" />;
+    if (fileType === 'text/plain') return <File className="h-5 w-5 text-gray-500" />;
+    return <FileText className="h-5 w-5 text-blue-500" />; // DOCX fallback
+  };
+
+  const renderExtractionStatus = (status: string, error?: string | null) => {
     switch (status) {
-      case 'completed':
-        return <Badge variant="success" className="text-[10px]"><CheckCircle2 className="w-3 h-3 mr-1" /> AI Ready</Badge>;
-      case 'failed':
-        return <Badge variant="danger" className="text-[10px]"><AlertCircle className="w-3 h-3 mr-1" /> Extraction Failed</Badge>;
-      case 'pending':
       case 'processing':
-        return <Badge variant="warning" className="text-[10px]"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Processing</Badge>;
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Extracting text
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Text ready
+          </span>
+        );
+      case 'failed':
+        return (
+          <span 
+            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700"
+            title={error || 'Extraction failed'}
+          >
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Extraction failed
+          </span>
+        );
+      case 'pending':
       default:
-        return null;
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+            Pending
+          </span>
+        );
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div className="flex items-center space-x-2">
+           <input 
+             type="file" 
+             ref={fileInputRef} 
+             onChange={handleFileChange} 
+             multiple 
+             accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+             className="hidden" 
+           />
+           <button
+             onClick={() => fileInputRef.current?.click()}
+             disabled={uploading}
+             className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+           >
+             {uploading ? (
+               <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+             ) : (
+               <UploadCloud className="w-4 h-4 mr-1.5" />
+             )}
+             Upload File
+           </button>
+        </div>
+      </div>
+
       {error && (
-        <Card className="border-danger/20 bg-danger/5">
-          <CardContent className="p-3 flex items-center text-sm text-danger">
-            <AlertCircle className="mr-2 h-4 w-4" />
-            <span>{error}</span>
-          </CardContent>
-        </Card>
+        <div className="bg-red-50 p-4 text-sm text-red-700 flex items-center">
+          <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
       )}
 
-      {loading && materials.length === 0 ? (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      {loading ? (
+        <div className="p-8 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      ) : materials.length === 0 ? (
+        <div className="p-8 text-center text-gray-500 text-sm">
+          No materials uploaded yet.
         </div>
       ) : (
-        <div className="space-y-3">
-          {materials.map(material => (
-            <div key={material.id} className="flex items-center justify-between p-3 rounded-lg border bg-surface hover:bg-surface-hover/50 transition-colors shadow-sm">
-              <div className="flex items-center space-x-3 min-w-0">
-                <div className="p-2 bg-primary/10 rounded text-primary">
-                  {material.file_type.includes('pdf') ? (
-                    <FileText className="w-4 h-4" />
-                  ) : (
-                    <File className="w-4 h-4" />
-                  )}
+        <ul className="divide-y divide-gray-50">
+          {materials.map((material) => (
+            <li key={material.id} className="group p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <div className="flex items-center space-x-3 overflow-hidden">
+                <div className="flex-shrink-0 p-2 bg-gray-100 rounded-lg">
+                  {getFileIcon(material.file_type)}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate max-w-[200px] sm:max-w-xs">{material.file_name}</p>
-                  <div className="flex items-center mt-1 space-x-2">
-                    <span className="text-[10px] text-muted-foreground uppercase">{material.file_type.split('/').pop()}</span>
-                    {getStatusBadge(material.extraction_status)}
-                    {material.extraction_truncated && (
-                       <Badge variant="outline" className="text-[10px] border-warning text-warning">Truncated</Badge>
-                    )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium text-gray-900 truncate" title={material.file_name}>
+                      {material.file_name}
+                    </p>
+                    {renderExtractionStatus(material.extraction_status, material.extraction_error)}
                   </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {formatFileSize(material.file_size)} • {new Date(material.created_at).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0 ml-4">
-                <a 
-                  href={`/api/materials/${material.id}/download`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                  title="Download file"
+              <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4 flex-shrink-0">
+                <button
+                  onClick={() => handleDownload(material.id)}
+                  className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                  title="Download / View"
                 >
                   <Download className="w-4 h-4" />
-                </a>
-                <button 
-                  onClick={() => handleDelete(material.id)}
-                  className="p-1.5 text-muted-foreground hover:text-danger hover:bg-danger/10 rounded-md transition-colors"
+                </button>
+                <button
+                  onClick={() => handleDelete(material.id, material.file_name)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
                   title="Delete file"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-            </div>
+            </li>
           ))}
-
-          {materials.length === 0 && (
-            <div className="text-center py-8 border border-dashed rounded-lg bg-surface">
-              <p className="text-sm text-muted-foreground">No materials uploaded yet.</p>
-            </div>
-          )}
-
-          <div className="pt-2">
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleFileUpload} 
-              className="hidden" 
-              accept=".pdf,.doc,.docx,.txt"
-            />
-            <Button 
-              variant="outline" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full text-muted-foreground border-dashed"
-            >
-              {uploading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <UploadCloud className="w-4 h-4 mr-2" />
-              )}
-              {uploading ? 'Uploading...' : `Upload ${materialType === 'note' ? 'Notes' : 'PYQ'} (PDF, DOCX, TXT)`}
-            </Button>
-          </div>
-        </div>
+        </ul>
       )}
     </div>
   );
