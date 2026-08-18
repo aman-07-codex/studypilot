@@ -11,6 +11,7 @@ import Exams from "./pages/Exams";
 import StudyPlan from "./pages/StudyPlan";
 import StudyRoom from "./pages/StudyRoom";
 import StudyHistory from "./pages/StudyHistory";
+import Settings from "./pages/Settings";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="exams/:examId/plan" element={<StudyPlan />} />
             <Route path="study" element={<StudyRoom />} />
             <Route path="study-history" element={<StudyHistory />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>

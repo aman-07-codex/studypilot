@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { BookOpen, LogOut, LayoutDashboard, Book, Calendar, History } from "lucide-react";
+import { BookOpen, LogOut, LayoutDashboard, Book, Calendar, History, Settings } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function Layout() {
@@ -70,6 +70,17 @@ export function Layout() {
           >
             <History className="h-5 w-5" />
             <span className="font-medium">Study History</span>
+          </Link>
+          <Link
+            to="/settings"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+              location.pathname.startsWith("/settings")
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Settings className="h-5 w-5" />
+            <span className="font-medium">Settings</span>
           </Link>
         </div>
 

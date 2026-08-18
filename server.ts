@@ -7,6 +7,7 @@ import { subjectTopicsRouter, topicRouter } from "./src/server/routes/topicRoute
 import examRouter from "./src/server/routes/examRoutes";
 import studyPlanRouter from "./src/server/routes/studyPlanRoutes";
 import studySessionRouter from "./src/server/routes/studySessionRoutes";
+import profileRouter from "./src/server/routes/profileRoutes";
 
 async function startServer() {
   const app = express();
@@ -27,6 +28,7 @@ async function startServer() {
   apiRouter.use("/exams", examRouter);
   apiRouter.use("/study-plans", studyPlanRouter);
   apiRouter.use("/study-sessions", studySessionRouter);
+  apiRouter.use("/profile", profileRouter);
 
   app.use("/api", apiRouter);
 
