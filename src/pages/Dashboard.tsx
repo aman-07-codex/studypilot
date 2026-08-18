@@ -45,7 +45,7 @@ export function Dashboard() {
     return "Good evening";
   };
 
-  const userName = user?.user_metadata?.full_name || "Student";
+  const userName = data?.user_full_name || user?.user_metadata?.full_name || "Student";
 
   if (loading) {
     return (

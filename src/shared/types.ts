@@ -52,6 +52,7 @@ export interface DashboardData {
   stats: DashboardStats;
   subjects: DashboardSubject[];
   today_tasks?: (StudyTask & { topic?: { name: string; subject?: { name: string; color_code: string | null } } })[];
+  user_full_name?: string | null;
 }
 
 export interface StudySession {
