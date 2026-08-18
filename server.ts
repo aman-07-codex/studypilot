@@ -8,6 +8,7 @@ import examRouter from "./src/server/routes/examRoutes";
 import studyPlanRouter from "./src/server/routes/studyPlanRoutes";
 import studySessionRouter from "./src/server/routes/studySessionRoutes";
 import profileRouter from "./src/server/routes/profileRoutes";
+import materialRouter from "./src/server/routes/materialRoutes";
 
 async function startServer() {
   const app = express();
@@ -29,6 +30,7 @@ async function startServer() {
   apiRouter.use("/study-plans", studyPlanRouter);
   apiRouter.use("/study-sessions", studySessionRouter);
   apiRouter.use("/profile", profileRouter);
+  apiRouter.use("/materials", materialRouter);
 
   app.use("/api", apiRouter);
 

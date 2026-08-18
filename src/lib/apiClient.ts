@@ -4,11 +4,15 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   
-  const headers = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
+
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
 
   const response = await fetch(url, { ...options, headers });
   

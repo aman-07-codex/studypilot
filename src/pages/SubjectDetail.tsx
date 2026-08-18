@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchWithAuth } from '../lib/apiClient';
 import { Subject, Topic } from '../shared/types';
+import { MaterialManager } from '../components/MaterialManager';
 
 export default function SubjectDetail() {
   const { subjectId } = useParams<{ subjectId: string }>();
@@ -16,6 +17,7 @@ export default function SubjectDetail() {
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopicName, setNewTopicName] = useState('');
   const [addLoading, setAddLoading] = useState(false);
+  const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
 
   useEffect(() => {
     if (subjectId) {
@@ -216,41 +218,69 @@ export default function SubjectDetail() {
             </div>
           ) : (
             topics.map((topic) => (
-              <div
-                key={topic.id}
-                className="group flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50"
-              >
-                <div className="flex items-center space-x-4 flex-1">
-                  <button
-                    onClick={() => toggleTopicCompletion(topic)}
-                    className={`focus:outline-none transition-colors ${
-                      topic.is_completed ? 'text-green-500' : 'text-gray-300 hover:text-blue-500'
-                    }`}
-                  >
-                    {topic.is_completed ? (
-                      <CheckCircle2 className="h-6 w-6" />
-                    ) : (
-                      <Circle className="h-6 w-6" />
-                    )}
-                  </button>
-                  <span className={`text-sm font-medium transition-colors ${
-                    topic.is_completed ? 'text-gray-400 line-through' : 'text-gray-900'
-                  }`}>
-                    {topic.name}
-                  </span>
+              <div key={topic.id} className="divide-y divide-gray-50 border-b border-gray-100 last:border-0">
+                <div className="group flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50">
+                  <div className="flex items-center space-x-4 flex-1">
+                    <button
+                      onClick={() => toggleTopicCompletion(topic)}
+                      className={`focus:outline-none transition-colors ${
+                        topic.is_completed ? 'text-green-500' : 'text-gray-300 hover:text-blue-500'
+                      }`}
+                    >
+                      {topic.is_completed ? (
+                        <CheckCircle2 className="h-6 w-6" />
+                      ) : (
+                        <Circle className="h-6 w-6" />
+                      )}
+                    </button>
+                    <span className={`text-sm font-medium transition-colors ${
+                      topic.is_completed ? 'text-gray-400 line-through' : 'text-gray-900'
+                    }`}>
+                      {topic.name}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setExpandedTopicId(expandedTopicId === topic.id ? null : topic.id)}
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-md hover:bg-blue-50 flex items-center space-x-1"
+                      title="Notes"
+                    >
+                      <span className="text-xs font-medium mr-1">Notes</span>
+                      {expandedTopicId === topic.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTopic(topic.id, topic.name)}
+                      className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 transition-all rounded-md hover:bg-red-50"
+                      title="Delete topic"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                
-                <button
-                  onClick={() => handleDeleteTopic(topic.id, topic.name)}
-                  className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 transition-all rounded-md hover:bg-red-50"
-                  title="Delete topic"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {expandedTopicId === topic.id && (
+                  <div className="p-4 bg-gray-50/50">
+                    <MaterialManager 
+                      subjectId={subject.id} 
+                      topicId={topic.id} 
+                      materialType="note" 
+                      title={`${topic.name} Notes`} 
+                    />
+                  </div>
+                )}
               </div>
             ))
           )}
         </div>
+      </div>
+
+      {/* PYQs Section */}
+      <div className="mt-8">
+        <MaterialManager 
+          subjectId={subject.id} 
+          materialType="pyq" 
+          title="Subject PYQs (Previous Year Questions)" 
+        />
       </div>
     </div>
   );

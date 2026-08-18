@@ -118,3 +118,18 @@ export interface StudyPlanWithDetails extends StudyPlan {
   exam: ExamWithSubject;
   tasks: (StudyTask & { topic?: { name: string } | null })[];
 }
+
+export interface StudyMaterial {
+  id: string;
+  user_id: string;
+  subject_id: string;
+  topic_id: string | null;
+  material_type: 'note' | 'pyq';
+  title: string;
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+  updated_at: string;
+}
