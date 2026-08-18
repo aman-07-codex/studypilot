@@ -35,9 +35,86 @@ export class StudyPlanService {
     if (topicsError) {
       throw new Error("Failed to fetch topics.");
     }
-
     if (!topics || topics.length === 0) {
       throw new Error("No topics found for this subject. Please add topics before generating a study plan.");
+    }
+
+    // 2.5. Fetch completed study materials for the subject
+    const { data: materials, error: materialsError } = await supabase
+      .from("study_materials")
+      .select("id, topic_id, material_type, extracted_text, extraction_truncated, title")
+      .eq("subject_id", exam.subject_id)
+      .eq("user_id", userId)
+      .eq("extraction_status", "completed");
+
+    if (materialsError) {
+      console.error("Failed to fetch study materials:", materialsError);
+    }
+    
+    const validMaterials = materials || [];
+    let subjectPyqsText = '';
+    const topicNotesMap: Record<string, string[]> = {};
+
+    let totalContextLength = 0;
+    const CONTEXT_BUDGET = 250000; // conservative budget for prompt context
+
+    const pyqs = validMaterials.filter(m => m.material_type === 'pyq' && !m.topic_id);
+    const notes = validMaterials.filter(m => m.material_type === 'note' && m.topic_id);
+
+    // Prioritize PYQs
+    for (const pyq of pyqs) {
+      if (!pyq.extracted_text) continue;
+      if (totalContextLength >= CONTEXT_BUDGET) break;
+
+      let textToAdd = `\n--- PYQ: ${pyq.title} ---\n`;
+      textToAdd += pyq.extraction_truncated ? "[Note: This document was truncated during extraction]\n" : "";
+      
+      const availableBudget = CONTEXT_BUDGET - totalContextLength;
+      if (pyq.extracted_text.length > availableBudget) {
+        textToAdd += pyq.extracted_text.substring(0, availableBudget) + "\n...[CONTENT TRUNCATED DUE TO CONTEXT BUDGET]...";
+        totalContextLength += availableBudget;
+      } else {
+        textToAdd += pyq.extracted_text;
+        totalContextLength += pyq.extracted_text.length;
+      }
+      subjectPyqsText += textToAdd;
+    }
+
+    // Then Notes by topic
+    for (const note of notes) {
+      if (!note.extracted_text || !note.topic_id) continue;
+      if (totalContextLength >= CONTEXT_BUDGET) break;
+
+      let textToAdd = `\n--- Note: ${note.title} ---\n`;
+      textToAdd += note.extraction_truncated ? "[Note: This document was truncated during extraction]\n" : "";
+
+      const availableBudget = CONTEXT_BUDGET - totalContextLength;
+      if (note.extracted_text.length > availableBudget) {
+        textToAdd += note.extracted_text.substring(0, availableBudget) + "\n...[CONTENT TRUNCATED DUE TO CONTEXT BUDGET]...";
+        totalContextLength += availableBudget;
+      } else {
+        textToAdd += note.extracted_text;
+        totalContextLength += note.extracted_text.length;
+      }
+      if (!topicNotesMap[note.topic_id]) {
+        topicNotesMap[note.topic_id] = [];
+      }
+      topicNotesMap[note.topic_id].push(textToAdd);
+    }
+
+    let materialsContext = "";
+    if (subjectPyqsText.length > 0 || Object.keys(topicNotesMap).length > 0) {
+      materialsContext = "\n<STUDY_MATERIALS>\n";
+      if (subjectPyqsText.length > 0) {
+        materialsContext += `<SUBJECT_PYQS>${subjectPyqsText}\n</SUBJECT_PYQS>\n\n`;
+      }
+      for (const topic of topics) {
+        const tNotes = topicNotesMap[topic.id];
+        if (tNotes && tNotes.length > 0) {
+          materialsContext += `<TOPIC>\n<NAME>${topic.name}</NAME>\n<TOPIC_NOTES>${tNotes.join("\n")}\n</TOPIC_NOTES>\n</TOPIC>\n\n`;
+        }
+      }
+      materialsContext += "</STUDY_MATERIALS>\n";
     }
 
     // 3. Call Gemini to generate the plan
@@ -50,7 +127,22 @@ export class StudyPlanService {
       
       Available Topics (with IDs):
       ${topics.map(t => `- ID: ${t.id} | Name: ${t.name} | Completed: ${t.is_completed}`).join('\n')}
-      
+
+      ${materialsContext}
+
+      AI INSTRUCTIONS FOR MATERIAL-AWARE PLANNING:
+      1. PYQs are evidence of what has historically been asked.
+      2. Repeated concepts/questions in PYQs should increase importance/priority.
+      3. Notes indicate the amount and depth of material the student needs to study.
+      4. A topic with substantial/complex notes may require more time.
+      5. A topic appearing frequently or prominently in PYQs should receive higher priority.
+      6. A topic with little/no material should NOT automatically receive high duration merely because its name sounds important.
+      7. Do not invent information about the student's materials.
+      8. Do not claim that a topic is important unless the supplied PYQs/material provide evidence or the topic has a reasonable structural relationship to the supplied content.
+      9. If no notes or PYQs are available, fall back gracefully to topic-based reasoning.
+      10. You must respect the user's available study time and exam date.
+      11. Priority should be one of: low, medium, high.
+
       Generate a realistic study schedule leading up to the exam date.
       Assign topics to specific days. Do not generate tasks after the exam date.
       Ensure the total time is balanced.
