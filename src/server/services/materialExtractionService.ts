@@ -1,5 +1,5 @@
 import * as mammoth from 'mammoth';
-import { PDFParse } from 'pdf-parse';
+import { Worker } from 'worker_threads';
 
 export class MaterialExtractionService {
   /**
@@ -13,9 +13,7 @@ export class MaterialExtractionService {
     let rawText = '';
 
     if (mimeType === 'application/pdf') {
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
-      rawText = result.text;
+      rawText = await this.extractPdfWithWorker(buffer);
     } else if (
       mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
       mimeType === 'application/msword' // Also accept doc if it slips through somehow
@@ -50,5 +48,64 @@ export class MaterialExtractionService {
     }
 
     return { text: normalized, truncated };
+  }
+
+  /**
+   * Extracts PDF text using a dedicated Node.js worker thread.
+   * This provides several production stability guarantees:
+   * 1. Prevents pdfjs-dist from blocking the main Express event loop.
+   * 2. Prevents memory leaks by aggressively terminating the worker upon completion.
+   * 3. Prevents indefinite hangs with a strict 30-second timeout.
+   */
+  private static async extractPdfWithWorker(buffer: Buffer): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const workerCode = `
+        const { parentPort } = require('worker_threads');
+        const { PDFParse } = require('pdf-parse');
+        
+        parentPort.on('message', async (buf) => {
+          try {
+            const parser = new PDFParse({ data: buf });
+            const res = await parser.getText();
+            await parser.destroy().catch(() => {});
+            parentPort.postMessage({ success: true, text: res.text });
+          } catch(e) {
+            parentPort.postMessage({ success: false, error: e.message || String(e) });
+          }
+        });
+      `;
+      
+      const worker = new Worker(workerCode, { eval: true });
+      
+      const timeout = setTimeout(() => {
+        worker.terminate().catch(console.error);
+        reject(new Error("PDF extraction timed out after 30 seconds. The file may be too large or malformed."));
+      }, 30000);
+
+      worker.on('message', (msg) => {
+        clearTimeout(timeout);
+        worker.terminate().catch(console.error);
+        if (msg.success) {
+          resolve(msg.text);
+        } else {
+          reject(new Error(msg.error));
+        }
+      });
+
+      worker.on('error', (err) => {
+        clearTimeout(timeout);
+        worker.terminate().catch(console.error);
+        reject(err);
+      });
+
+      worker.on('exit', (code) => {
+        clearTimeout(timeout);
+        if (code !== 0 && code !== 1) {
+          reject(new Error(`PDF worker stopped unexpectedly with code ${code}`));
+        }
+      });
+
+      worker.postMessage(buffer);
+    });
   }
 }
