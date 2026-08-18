@@ -7,12 +7,16 @@ import {
   Book, 
   ListTodo, 
   CheckCircle, 
-  TrendingUp, 
-  AlertCircle,
+  TrendingUp,
   PlusCircle,
   Loader2,
-  History
+  Calendar,
+  Clock,
+  Play
 } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -28,7 +32,7 @@ export function Dashboard() {
       const dashboardData = await fetchWithAuth(`/api/dashboard?tzOffset=${tzOffset}`);
       setData(dashboardData);
     } catch (err: any) {
-      setError(err.message || "Failed to load dashboard data");
+      setError(err.message || "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
@@ -40,295 +44,279 @@ export function Dashboard() {
 
   const handleCompleteTask = async (taskId: string, isCompleted: boolean) => {
     try {
-      await fetchWithAuth(`/api/study-plans/tasks/${taskId}`, {
-        method: 'PUT',
+      await fetchWithAuth(`/api/study-tasks/${taskId}`, {
+        method: 'PATCH',
         body: JSON.stringify({ is_completed: isCompleted })
       });
-      
-      // Update local state instead of full reload to be snappy
-      if (data && data.today_tasks) {
-        setData({
-          ...data,
-          today_tasks: data.today_tasks.map(t => 
-            t.id === taskId ? { ...t, is_completed: isCompleted } : t
-          )
-        });
-      }
-    } catch (err: any) {
-      alert(err.message || 'Failed to update task');
+      loadDashboard();
+    } catch (err) {
+      console.error('Failed to update task:', err);
     }
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
-  };
-
-  const userName = data?.user_full_name || user?.user_metadata?.full_name || "Student";
-
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary/60" />
+          <p className="mt-4 text-sm font-medium text-muted-foreground animate-pulse">Loading workspace...</p>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="rounded-xl bg-red-50 p-6 shadow-sm ring-1 ring-red-100 flex flex-col items-center text-center max-w-md mx-auto mt-12">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to load dashboard</h3>
-        <p className="text-sm text-red-600 mb-6">{error}</p>
-        <button
-          onClick={loadDashboard}
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-        >
-          Try Again
-        </button>
-      </div>
+      <Card className="max-w-md mx-auto mt-8 border-danger/20 bg-danger/5">
+        <CardContent className="p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger/10 mb-4">
+            <span className="text-danger font-bold text-xl">!</span>
+          </div>
+          <h3 className="text-lg font-semibold text-danger">Unable to load dashboard</h3>
+          <p className="mt-2 text-sm text-danger/80">{error}</p>
+          <Button onClick={loadDashboard} variant="outline" className="mt-6 border-danger/20 text-danger hover:bg-danger/10 hover:text-danger">
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
-
-  if (!data) return null;
 
   const { stats, subjects } = data;
+  const firstName = data.user_full_name 
+    ? data.user_full_name.split(' ')[0] 
+    : user?.email?.split('@')[0] || 'Student';
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Welcome Section */}
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            {getGreeting()}, {userName}
-          </h1>
-          <p className="text-gray-500 mt-2 text-lg">
-            Here's an overview of your study progress today.
-          </p>
-        </div>
-        <div className="mt-6 md:mt-0">
-          <Link
-            to="/study-history"
-            className="inline-flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
-          >
-            <History className="w-4 h-4 mr-2" />
-            View Study History
-          </Link>
+          <h1 className="text-3xl font-bold tracking-tight">Welcome back, {firstName}</h1>
+          <p className="text-muted-foreground mt-2">Here's your academic overview for today.</p>
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-blue-50 rounded-xl">
-            <Book className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Subjects</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.total_subjects}</p>
-          </div>
-        </div>
+      {/* Metrics Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-6 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium text-muted-foreground">Topics Mastered</p>
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <CheckCircle className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-bold">{stats.completed_topics} <span className="text-lg font-normal text-muted-foreground">/ {stats.total_topics}</span></div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.overall_percentage}% overall completion
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium text-muted-foreground">Study Time Today</p>
+              <div className="p-2 bg-warning/10 rounded-lg">
+                <Clock className="h-4 w-4 text-warning" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-bold">{stats.today_study_minutes} <span className="text-lg font-normal text-muted-foreground">min</span></div>
+              <p className="text-xs text-muted-foreground mt-1">
+                across {stats.today_sessions} {stats.today_sessions === 1 ? 'session' : 'sessions'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-purple-50 rounded-xl">
-            <ListTodo className="h-6 w-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Total Topics</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.total_topics}</p>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="p-6 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium text-muted-foreground">Active Subjects</p>
+              <div className="p-2 bg-success/10 rounded-lg">
+                <Book className="h-4 w-4 text-success" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-bold">{stats.total_subjects}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tracked in your workspace
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-green-50 rounded-xl">
-            <CheckCircle className="h-6 w-6 text-green-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Completed Topics</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.completed_topics}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-orange-50 rounded-xl">
-            <TrendingUp className="h-6 w-6 text-orange-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Overall Progress</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.overall_percentage}%</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-indigo-50 rounded-xl">
-            <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Today's Study</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats.today_study_minutes} <span className="text-sm font-normal text-gray-500">min</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-red-50 rounded-xl">
-            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Study Streak</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats.current_streak} <span className="text-sm font-normal text-gray-500">days</span>
-            </p>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="p-6 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium text-muted-foreground">Study Streak</p>
+              <div className="p-2 bg-danger/10 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-danger" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-bold">{stats.current_streak} <span className="text-lg font-normal text-muted-foreground">days</span></div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Keep the momentum going
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Today's Tasks */}
       {data.today_tasks && data.today_tasks.length > 0 && (
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-            <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Today's AI Study Plan
-          </h2>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ListTodo className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold tracking-tight">Today's AI Study Plan</h2>
+          </div>
+          
+          <div className="grid gap-3">
             {data.today_tasks.map(task => (
-              <div key={task.id} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                <div className="flex-1">
-                  <div className={`text-base font-medium ${task.is_completed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                    {task.topic ? task.topic.name : 'General Review & Practice'}
-                  </div>
-                  <div className="flex items-center space-x-3 mt-1.5 text-sm text-gray-500">
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {task.duration_minutes} min
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                      task.priority === 'high' ? 'bg-red-50 text-red-700 border-red-100' :
-                      task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
-                      'bg-green-50 text-green-700 border-green-100'
-                    }`}>
-                      {task.priority.toUpperCase()} PRIORITY
-                    </span>
-                  </div>
-                  {task.subtopics && task.subtopics.length > 0 && (
-                    <div className="mt-3 pl-1">
-                      <ul className="space-y-1">
-                        {task.subtopics.map((subtopic, idx) => (
-                          <li key={idx} className="text-xs text-gray-600 flex items-start">
-                            <span className="text-gray-400 mr-2 mt-0.5">•</span>
-                            <span className="truncate" title={subtopic}>{subtopic}</span>
-                          </li>
-                        ))}
-                      </ul>
+              <Card key={task.id} className={`transition-all ${task.is_completed ? 'opacity-60 bg-surface-hover/50 border-dashed' : 'hover:border-primary/30 hover:shadow-md'}`}>
+                <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Badge variant={
+                        task.priority === 'high' ? 'danger' :
+                        task.priority === 'medium' ? 'warning' : 'success'
+                      } className="uppercase text-[10px] tracking-wider font-bold">
+                        {task.priority} Priority
+                      </Badge>
+                      <span className="flex items-center text-xs font-medium text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5 mr-1" />
+                        {task.duration_minutes} min
+                      </span>
                     </div>
-                  )}
-                </div>
-                {!task.is_completed && (
-                  <div className="ml-4 flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                    <Link
-                      to={`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`}
-                      className="flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
-                    >
-                      <Book className="w-4 h-4 mr-1.5" />
-                      Start Studying
-                    </Link>
-                    <button
-                      onClick={() => handleCompleteTask(task.id, true)}
-                      className="flex items-center rounded-lg bg-white border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1.5 text-gray-400" />
-                      Complete
-                    </button>
+
+                    <h3 className={`text-base font-semibold truncate ${task.is_completed ? 'line-through text-muted-foreground' : ''}`}>
+                      {task.topic ? task.topic.name : 'General Review & Practice'}
+                    </h3>
+
+                    {task.subtopics && task.subtopics.length > 0 && (
+                      <div className="mt-3">
+                        <ul className="grid sm:grid-cols-2 gap-y-1 gap-x-4">
+                          {task.subtopics.map((subtopic, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground flex items-start">
+                              <span className="text-border mr-2 mt-0.5">•</span>
+                              <span className="truncate" title={subtopic}>{subtopic}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )}
-                {task.is_completed && (
-                   <div className="ml-4 flex items-center space-x-2">
-                     <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
-                       <CheckCircle className="w-4 h-4 mr-1.5" /> Done
-                     </span>
-                     <button
-                       onClick={() => handleCompleteTask(task.id, false)}
-                       className="text-xs text-gray-400 hover:text-gray-600 underline"
-                     >
-                       Undo
-                     </button>
-                   </div>
-                )}
-              </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 border-t sm:border-t-0 pt-4 sm:pt-0">
+                    {!task.is_completed ? (
+                      <>
+                        <Link
+                          to={`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`}
+                          className="w-full sm:w-auto"
+                        >
+                          <Button className="w-full" size="sm">
+                            <Play className="w-4 h-4 mr-2" />
+                            Start
+                          </Button>
+                        </Link>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleCompleteTask(task.id, true)}
+                          className="w-full sm:w-auto"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2 text-muted-foreground" />
+                          Complete
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                        <Badge variant="success" className="bg-success/10 text-success border-0 rounded-md py-1.5">
+                          <CheckCircle className="w-4 h-4 mr-1.5" /> Done
+                        </Badge>
+                        <button
+                          onClick={() => handleCompleteTask(task.id, false)}
+                          className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                        >
+                          Undo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
             ))}
           </div>
         </div>
       )}
 
       {/* Subject Progress Section */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Subject Progress</h2>
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold tracking-tight">Subject Progress</h2>
         
         {subjects.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
-            <Book className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No subjects yet</h3>
-            <p className="mt-2 text-sm text-gray-500 max-w-sm mx-auto">
-              Get started by adding your first subject. Track topics, monitor progress, and master your courses.
-            </p>
-            <Link
-              to="/subjects"
-              className="mt-6 inline-flex items-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 shadow-sm"
-            >
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Create First Subject
-            </Link>
-          </div>
+          <Card className="border-dashed bg-transparent">
+            <CardContent className="p-12 text-center flex flex-col items-center">
+              <div className="p-4 bg-surface rounded-full shadow-sm mb-4">
+                <Book className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold">No subjects yet</h3>
+              <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
+                Get started by adding your first subject. Track topics, monitor progress, and master your courses.
+              </p>
+              <Link to="/subjects" className="mt-6">
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create First Subject
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {subjects.map((subject) => (
-              <div 
-                key={subject.id}
-                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md flex flex-col"
-              >
-                <div className="flex items-center space-x-3 mb-6">
-                  <div 
-                    className="h-4 w-4 rounded-full flex-shrink-0" 
-                    style={{ backgroundColor: subject.color_code || '#4f46e5' }}
-                  />
-                  <h3 className="text-lg font-semibold text-gray-900 truncate" title={subject.name}>
-                    {subject.name}
-                  </h3>
-                </div>
-                
-                <div className="mt-auto">
-                  <div className="flex justify-between items-end mb-2">
-                    <p className="text-sm text-gray-500">
-                      {subject.completed_topics} / {subject.total_topics} topics completed
-                    </p>
-                    <span className="font-bold text-gray-900 text-lg leading-none">
-                      {subject.completion_percentage}%
-                    </span>
+              <Card key={subject.id} className="hover:border-primary/20 hover:shadow-md transition-all flex flex-col">
+                <CardContent className="p-6 flex flex-col h-full justify-between">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div 
+                      className="h-3.5 w-3.5 rounded-full flex-shrink-0 shadow-sm" 
+                      style={{ backgroundColor: subject.color_code || 'var(--primary)' }}
+                    />
+                    <h3 className="font-semibold text-lg truncate" title={subject.name}>
+                      {subject.name}
+                    </h3>
                   </div>
                   
-                  <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full transition-all duration-1000 ease-out"
-                      style={{ 
-                        width: `${subject.completion_percentage}%`,
-                        backgroundColor: subject.color_code || '#4f46e5'
-                      }}
-                    />
+                  <div>
+                    <div className="flex justify-between items-end mb-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {subject.completed_topics} / {subject.total_topics} topics
+                      </p>
+                      <span className="font-bold text-xl tracking-tight">
+                        {subject.completion_percentage}%
+                      </span>
+                    </div>
+                    
+                    <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all duration-1000 ease-out relative"
+                        style={{ 
+                          width: `${subject.completion_percentage}%`,
+                          backgroundColor: subject.color_code || 'var(--primary)'
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-white/20" />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}

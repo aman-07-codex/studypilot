@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import { BookOpen, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 export function Login() {
   const [email, setEmail] = useState("");
@@ -29,55 +31,47 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 transition-colors duration-200">
+      <div className="w-full max-w-md space-y-8 bg-surface p-10 rounded-2xl shadow-lg border border-border animate-in zoom-in-95 fade-in duration-500">
         <div className="flex flex-col items-center">
-          <div className="rounded-full bg-indigo-50 p-3 mb-4">
-            <BookOpen className="h-8 w-8 text-indigo-600" />
+          <div className="rounded-xl bg-primary/10 p-4 mb-4 shadow-sm">
+            <BookOpen className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900">
-            Sign in to StudyPilot
+          <h2 className="text-center text-3xl font-bold tracking-tight text-foreground">
+            Welcome back
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Welcome back to your AI study planner
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Sign in to StudyPilot to continue.
           </p>
         </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        
+        <form className="space-y-6" onSubmit={handleLogin}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-200">
-              {error}
+            <div className="rounded-lg bg-danger/10 p-4 text-sm text-danger flex items-center shadow-sm">
+              <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+              <span className="font-medium">{error}</span>
             </div>
           )}
-
+          
           <div className="space-y-4">
             <div>
-              <label
-                htmlFor="email-address"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email address
-              </label>
-              <input
-                id="email-address"
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Email address</label>
+              <Input
+                id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                placeholder="you@student.edu"
+                placeholder="you@example.com"
+                className="h-11"
               />
             </div>
+            
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-              <input
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Password</label>
+              <Input
                 id="password"
                 name="password"
                 type="password"
@@ -85,32 +79,23 @@ export function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                 placeholder="••••••••"
+                className="h-11"
               />
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-70"
-            >
-              {loading ? "Signing in..." : "Sign in"}
-            </button>
-          </div>
+          <Button type="submit" className="w-full h-11 text-base font-semibold shadow-sm" isLoading={loading}>
+            Sign in
+          </Button>
         </form>
-
-        <div className="text-center text-sm">
-          <span className="text-gray-600">Don't have an account? </span>
-          <Link
-            to="/signup"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
-          >
+        
+        <p className="text-center text-sm text-muted-foreground font-medium">
+          Don't have an account?{" "}
+          <Link to="/signup" className="font-semibold text-primary hover:text-primary/80 transition-colors">
             Sign up
           </Link>
-        </div>
+        </p>
       </div>
     </div>
   );

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Circle, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { fetchWithAuth } from '../lib/apiClient';
 import { Subject, Topic } from '../shared/types';
 import { MaterialManager } from '../components/MaterialManager';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Input } from '../components/ui/input';
 
 export default function SubjectDetail() {
   const { subjectId } = useParams<{ subjectId: string }>();
@@ -17,24 +20,21 @@ export default function SubjectDetail() {
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopicName, setNewTopicName] = useState('');
   const [addLoading, setAddLoading] = useState(false);
+
   const [expandedTopicId, setExpandedTopicId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (subjectId) {
-      loadData();
-    }
+    if (subjectId) loadData();
   }, [subjectId]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      
       const [subjectData, topicsData] = await Promise.all([
         fetchWithAuth(`/api/subjects/${subjectId}`),
         fetchWithAuth(`/api/subjects/${subjectId}/topics`)
       ]);
-
       setSubject(subjectData);
       setTopics(topicsData);
     } catch (err: any) {
@@ -46,16 +46,15 @@ export default function SubjectDetail() {
 
   const handleAddTopic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTopicName.trim() || !subjectId) return;
+    if (!newTopicName.trim()) return;
 
     try {
       setAddLoading(true);
-      const newTopic = await fetchWithAuth(`/api/subjects/${subjectId}/topics`, {
+      const created = await fetchWithAuth(`/api/subjects/${subjectId}/topics`, {
         method: 'POST',
-        body: JSON.stringify({ name: newTopicName }),
+        body: JSON.stringify({ name: newTopicName })
       });
-      
-      setTopics([...topics, newTopic]);
+      setTopics([...topics, created]);
       setNewTopicName('');
       setIsAddingTopic(false);
     } catch (err: any) {
@@ -65,222 +64,190 @@ export default function SubjectDetail() {
     }
   };
 
-  const toggleTopicCompletion = async (topic: Topic) => {
+  const handleToggleComplete = async (topic: Topic) => {
     try {
-      // Optimistic update
-      const updatedTopics = topics.map(t => 
-        t.id === topic.id ? { ...t, is_completed: !t.is_completed } : t
-      );
-      setTopics(updatedTopics);
-
-      await fetchWithAuth(`/api/topics/${topic.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ is_completed: !topic.is_completed }),
+      const updated = await fetchWithAuth(`/api/topics/${topic.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_completed: !topic.is_completed })
       });
+      setTopics(topics.map(t => t.id === updated.id ? updated : t));
     } catch (err: any) {
-      // Revert on error
-      const revertedTopics = topics.map(t => 
-        t.id === topic.id ? { ...t, is_completed: topic.is_completed } : t
-      );
-      setTopics(revertedTopics);
       alert(err.message || 'Failed to update topic');
     }
   };
 
-  const handleDeleteTopic = async (topicId: string, topicName: string) => {
-    if (!window.confirm(`Delete topic "${topicName}"?`)) return;
+  const handleDeleteTopic = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this topic?')) return;
     
     try {
-      await fetchWithAuth(`/api/topics/${topicId}`, { method: 'DELETE' });
-      setTopics(topics.filter(t => t.id !== topicId));
+      await fetchWithAuth(`/api/topics/${id}`, { method: 'DELETE' });
+      setTopics(topics.filter(t => t.id !== id));
+      if (expandedTopicId === id) setExpandedTopicId(null);
     } catch (err: any) {
       alert(err.message || 'Failed to delete topic');
     }
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedTopicId(expandedTopicId === id ? null : id);
+  };
+
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
       </div>
     );
   }
 
   if (error || !subject) {
     return (
-      <div className="space-y-4">
-        <button
-          onClick={() => navigate('/subjects')}
-          className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+      <div className="space-y-6">
+        <Button variant="ghost" onClick={() => navigate('/subjects')} className="pl-0 hover:bg-transparent">
+          <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Subjects
-        </button>
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 flex items-center">
-          <AlertCircle className="mr-2 h-4 w-4" />
-          {error || 'Subject not found'}
-        </div>
+        </Button>
+        <Card className="border-danger/20 bg-danger/5">
+          <CardContent className="p-4 flex items-center text-sm text-danger">
+            <AlertCircle className="mr-3 h-5 w-5" />
+            <span className="flex-1 font-medium">{error || 'Subject not found'}</span>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   const completedCount = topics.filter(t => t.is_completed).length;
-  const totalCount = topics.length;
-  const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  const progress = topics.length === 0 ? 0 : Math.round((completedCount / topics.length) * 100);
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <button
-        onClick={() => navigate('/subjects')}
-        className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
+    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      <Button variant="ghost" onClick={() => navigate('/subjects')} className="pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4 mr-2" />
         Back to Subjects
-      </button>
+      </Button>
 
-      <div className="rounded-xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div
-              className="h-6 w-6 rounded-md"
-              style={{ backgroundColor: subject.color_code || '#3b82f6' }}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div 
+              className="h-4 w-4 rounded-full shadow-sm"
+              style={{ backgroundColor: subject.color_code || 'var(--primary)' }}
             />
-            <h1 className="text-3xl font-bold text-gray-900">{subject.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{subject.name}</h1>
           </div>
-        </div>
-
-        <div className="mt-8">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="font-medium text-gray-700">Course Progress</span>
-            <span className="font-bold text-gray-900">{percentage}%</span>
-          </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${percentage}%`, backgroundColor: subject.color_code || '#3b82f6' }}
-            />
-          </div>
-          <div className="mt-2 text-sm text-gray-500">
-            {completedCount} of {totalCount} topics completed
-          </div>
+          <p className="text-muted-foreground flex items-center gap-4 text-sm mt-4">
+            <span className="font-medium">{topics.length} topics</span>
+            <span className="text-border">|</span>
+            <span className="font-medium">{progress}% mastery</span>
+          </p>
         </div>
       </div>
+      
+      {/* Subject-level PYQs */}
+      <div className="pt-6">
+        <h2 className="text-xl font-bold tracking-tight mb-4 flex items-center">
+          <FileText className="w-5 h-5 mr-2 text-primary" />
+          Past Year Questions (PYQs)
+        </h2>
+        <MaterialManager subjectId={subjectId} materialType="pyq" />
+      </div>
 
-      <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden">
-        <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Topics</h2>
+      <div className="pt-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold tracking-tight">Topics</h2>
           {!isAddingTopic && (
-            <button
-              onClick={() => setIsAddingTopic(true)}
-              className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              <Plus className="mr-1 h-4 w-4" />
+            <Button onClick={() => setIsAddingTopic(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
               Add Topic
-            </button>
+            </Button>
           )}
         </div>
 
-        <div className="divide-y divide-gray-100">
+        <div className="space-y-4">
           {isAddingTopic && (
-            <div className="p-4 bg-blue-50/50">
-              <form onSubmit={handleAddTopic} className="flex items-center gap-3">
-                <input
-                  type="text"
-                  autoFocus
-                  value={newTopicName}
-                  onChange={(e) => setNewTopicName(e.target.value)}
-                  placeholder="Enter topic name..."
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  disabled={addLoading}
-                />
-                <button
-                  type="submit"
-                  disabled={!newTopicName.trim() || addLoading}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingTopic(false)}
-                  disabled={addLoading}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-              </form>
-            </div>
+            <Card className="border-primary/30 shadow-sm">
+              <CardContent className="p-4">
+                <form onSubmit={handleAddTopic} className="flex gap-3">
+                  <Input
+                    autoFocus
+                    placeholder="Enter topic name..."
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.target.value)}
+                    disabled={addLoading}
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" onClick={() => { setIsAddingTopic(false); setNewTopicName(''); }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" isLoading={addLoading}>
+                    Save
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           )}
 
           {topics.length === 0 && !isAddingTopic ? (
-            <div className="p-12 text-center text-gray-500 text-sm">
-              No topics added yet. Break down your subject into smaller topics to track progress!
-            </div>
+            <Card className="border-dashed bg-transparent">
+              <CardContent className="p-12 text-center text-muted-foreground">
+                <p>No topics added yet. Break down your subject into smaller topics.</p>
+                <Button variant="outline" className="mt-4" onClick={() => setIsAddingTopic(true)}>
+                  Add First Topic
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
-            topics.map((topic) => (
-              <div key={topic.id} className="divide-y divide-gray-50 border-b border-gray-100 last:border-0">
-                <div className="group flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50">
-                  <div className="flex items-center space-x-4 flex-1">
-                    <button
-                      onClick={() => toggleTopicCompletion(topic)}
-                      className={`focus:outline-none transition-colors ${
-                        topic.is_completed ? 'text-green-500' : 'text-gray-300 hover:text-blue-500'
-                      }`}
+            <div className="space-y-3">
+              {topics.map(topic => {
+                const isExpanded = expandedTopicId === topic.id;
+                
+                return (
+                  <Card key={topic.id} className={`overflow-hidden transition-all ${isExpanded ? 'ring-1 ring-primary/20 shadow-md' : 'hover:border-primary/20 hover:shadow-sm'}`}>
+                    <div 
+                      className={`p-4 flex items-center cursor-pointer transition-colors ${topic.is_completed ? 'bg-surface-hover/30' : 'bg-surface'}`}
+                      onClick={() => toggleExpand(topic.id)}
                     >
-                      {topic.is_completed ? (
-                        <CheckCircle2 className="h-6 w-6" />
-                      ) : (
-                        <Circle className="h-6 w-6" />
-                      )}
-                    </button>
-                    <span className={`text-sm font-medium transition-colors ${
-                      topic.is_completed ? 'text-gray-400 line-through' : 'text-gray-900'
-                    }`}>
-                      {topic.name}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setExpandedTopicId(expandedTopicId === topic.id ? null : topic.id)}
-                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded-md hover:bg-blue-50 flex items-center space-x-1"
-                      title="Notes"
-                    >
-                      <span className="text-xs font-medium mr-1">Notes</span>
-                      {expandedTopicId === topic.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTopic(topic.id, topic.name)}
-                      className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 transition-all rounded-md hover:bg-red-50"
-                      title="Delete topic"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                {expandedTopicId === topic.id && (
-                  <div className="p-4 bg-gray-50/50">
-                    <MaterialManager 
-                      subjectId={subject.id} 
-                      topicId={topic.id} 
-                      materialType="note" 
-                      title={`${topic.name} Notes`} 
-                    />
-                  </div>
-                )}
-              </div>
-            ))
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleToggleComplete(topic); }}
+                        className={`mr-4 focus:outline-none rounded-full transition-colors ${topic.is_completed ? 'text-success' : 'text-muted-foreground hover:text-primary'}`}
+                      >
+                        {topic.is_completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                      </button>
+                      
+                      <div className={`flex-1 font-medium text-lg truncate ${topic.is_completed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                        {topic.name}
+                      </div>
+                      
+                      <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => handleDeleteTopic(topic.id, e)}
+                          className="p-2 text-muted-foreground hover:text-danger hover:bg-danger/10 rounded-md transition-colors"
+                          aria-label="Delete topic"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="p-2 text-muted-foreground">
+                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div className="border-t border-border bg-surface-hover/20 p-6 animate-in slide-in-from-top-2 duration-200">
+                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4 flex items-center">
+                          <FileText className="w-4 h-4 mr-2" /> Topic Notes & Materials
+                        </h4>
+                        <MaterialManager subjectId={subjectId} topicId={topic.id} materialType="note" />
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
           )}
         </div>
-      </div>
-
-      {/* PYQs Section */}
-      <div className="mt-8">
-        <MaterialManager 
-          subjectId={subject.id} 
-          materialType="pyq" 
-          title="Subject PYQs (Previous Year Questions)" 
-        />
       </div>
     </div>
   );

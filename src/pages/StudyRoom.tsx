@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { fetchWithAuth } from '../lib/apiClient';
-import { Play, Square, Clock, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { Play, Square, Clock, AlertCircle, Loader2, CheckCircle2, History } from 'lucide-react';
 import { Subject, Topic, StudySessionWithDetails } from '../shared/types';
 import { useLocation } from 'react-router-dom';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 
 export default function StudyRoom() {
   const location = useLocation();
@@ -23,6 +26,7 @@ export default function StudyRoom() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<StudySessionWithDetails[]>([]);
+
   const [finishedSessionResult, setFinishedSessionResult] = useState<{ duration: number, topicName: string } | null>(null);
 
   useEffect(() => {
@@ -35,7 +39,7 @@ export default function StudyRoom() {
       const [subjectsData, topicsData, sessionsData] = await Promise.all([
         fetchWithAuth('/api/subjects'),
         fetchWithAuth('/api/topics'),
-        fetchWithAuth('/api/study-sessions')
+        fetchWithAuth('/api/study-sessions?limit=5')
       ]);
       setSubjects(subjectsData);
       setTopics(topicsData);
@@ -49,271 +53,237 @@ export default function StudyRoom() {
         }
       }
     } catch (err: any) {
-      setError('Failed to load data. Please refresh.');
+      setError(err.message || 'Failed to load initial data');
     } finally {
       setLoading(false);
     }
   };
 
+  const filteredTopics = topics.filter(t => t.subject_id === selectedSubject);
+
   useEffect(() => {
-    if (!isStudying || !startedAt) return;
-    
-    const interval = setInterval(() => {
-      const start = new Date(startedAt).getTime();
-      const now = Date.now();
-      setElapsedSeconds(Math.floor((now - start) / 1000));
-    }, 1000);
-    
+    let interval: NodeJS.Timeout;
+    if (isStudying && startedAt) {
+      interval = setInterval(() => {
+        const start = new Date(startedAt).getTime();
+        const now = new Date().getTime();
+        setElapsedSeconds(Math.floor((now - start) / 1000));
+      }, 1000);
+    }
     return () => clearInterval(interval);
   }, [isStudying, startedAt]);
 
   const handleStart = () => {
-    setError(null);
     setStartedAt(new Date().toISOString());
     setIsStudying(true);
     setElapsedSeconds(0);
+    setFinishedSessionResult(null);
   };
 
-  const handleStopAndSave = async () => {
+  const handleStop = async () => {
     if (!startedAt) return;
     
+    setIsStudying(false);
+    setSaving(true);
+    setError(null);
+
+    const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
+
     try {
-      setSaving(true);
-      setError(null);
-      const completedAt = new Date().toISOString();
-      const tzOffset = new Date().getTimezoneOffset();
-
-      // Check if duration is at least 1 minute (60 seconds).
-      // Since backend enforces > 0 minutes, if it's < 30 seconds we might get 0.
-      // We will let the backend handle the Math.max(1, duration) logic as written.
-      
-      const newSession = await fetchWithAuth('/api/study-sessions', {
+      const payload = {
+        topic_id: selectedTopic || null,
+        duration_minutes: durationMinutes,
+        started_at: startedAt
+      };
+      await fetchWithAuth('/api/study-sessions', {
         method: 'POST',
-        body: JSON.stringify({
-          topic_id: selectedTopic || null,
-          started_at: startedAt,
-          completed_at: completedAt,
-          timezone_offset: tzOffset
-        })
+        body: JSON.stringify(payload)
       });
-
-      setRecentSessions([newSession, ...recentSessions]);
-      setIsStudying(false);
+      
+      const t = topics.find(t => t.id === selectedTopic);
+      setFinishedSessionResult({
+        duration: durationMinutes,
+        topicName: t ? t.name : 'General Study'
+      });
+      
       setStartedAt(null);
       setElapsedSeconds(0);
-      setFinishedSessionResult({
-        duration: newSession.duration_minutes,
-        topicName: newSession.topic ? newSession.topic.name : (selectedSubject ? subjects.find(s => s.id === selectedSubject)?.name + " (General)" : 'General Study')
-      });
       
-      // Optionally if prefilledTopicId was set (e.g. from AI task), we might want to auto-mark it complete?
-      // Requirement: "Do not automatically mark an AI task complete merely because a timer starts. Only mark an AI task completed through an explicit user action."
+      // reload recent
+      const sessionsData = await fetchWithAuth('/api/study-sessions?limit=5');
+      setRecentSessions(sessionsData);
+      
     } catch (err: any) {
-      setError(err.message || 'Failed to save session');
+      setError(err.message || 'Failed to save study session');
+      setIsStudying(true); // resume on failure
     } finally {
       setSaving(false);
     }
   };
 
   const formatTime = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    if (h > 0) {
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    const parts = [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0')
+    ];
+    
+    if (hours === 0) {
+      return parts.slice(1).join(':');
     }
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return parts.join(':');
   };
-
-  const availableTopics = topics.filter(t => t.subject_id === selectedSubject);
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Study Room</h1>
-        <p className="text-gray-500 mt-1">Focus on your topics and track your real study time.</p>
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
+      <div className="text-center md:text-left">
+        <h1 className="text-3xl font-bold tracking-tight">Study Room</h1>
+        <p className="text-muted-foreground mt-2">Eliminate distractions and focus on your goals.</p>
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 flex items-center">
-          <AlertCircle className="mr-2 h-4 w-4" />
-          {error}
-        </div>
+         <Card className="border-danger/20 bg-danger/5">
+           <CardContent className="p-4 flex items-center text-sm text-danger">
+             <AlertCircle className="mr-3 h-5 w-5" />
+             <span className="flex-1 font-medium">{error}</span>
+           </CardContent>
+         </Card>
       )}
 
-      {/* Timer Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-        {finishedSessionResult ? (
-          <div className="max-w-md mx-auto py-8 space-y-6">
-            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Session Completed!</h2>
-              <p className="text-gray-500 mt-2">Great job focusing on your study goals.</p>
+      {finishedSessionResult && !isStudying && !saving && (
+        <Card className="border-success/30 bg-success/5 animate-in slide-in-from-top-4">
+          <CardContent className="p-8 text-center flex flex-col items-center">
+            <div className="h-16 w-16 rounded-full bg-success/20 flex items-center justify-center mb-4">
+              <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
-            
-            <div className="bg-gray-50 rounded-xl p-6 text-left space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Duration</p>
-                <p className="text-xl font-bold text-gray-900">{finishedSessionResult.duration} minutes</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Topic</p>
-                <p className="text-lg font-medium text-gray-900">{finishedSessionResult.topicName}</p>
-              </div>
-            </div>
+            <h3 className="text-2xl font-bold text-success mb-2">Session Complete!</h3>
+            <p className="text-muted-foreground text-lg">
+              You studied <span className="font-semibold text-foreground">{finishedSessionResult.topicName}</span> for <span className="font-semibold text-foreground">{finishedSessionResult.duration} minutes</span>.
+            </p>
+            <Button className="mt-8" onClick={() => setFinishedSessionResult(null)}>
+              Start Another Session
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <button
-                onClick={() => window.history.back()}
-                className="flex-1 flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                Back to Study Plan
-              </button>
-              <button
-                onClick={() => setFinishedSessionResult(null)}
-                className="flex-1 flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
-              >
-                Start New Session
-              </button>
-            </div>
-          </div>
-        ) : !isStudying ? (
-          <div className="max-w-md mx-auto space-y-5 text-left">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 text-center mb-6">Study Session</h2>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subject (Optional)</label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => {
-                  setSelectedSubject(e.target.value);
-                  setSelectedTopic('');
-                }}
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="">General Study</option>
-                {subjects.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            {selectedSubject && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Topic (Optional)</label>
-                <select
-                  value={selectedTopic}
-                  onChange={(e) => setSelectedTopic(e.target.value)}
-                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+      {!finishedSessionResult && (
+        <Card className={`overflow-hidden transition-all duration-700 shadow-lg ${isStudying ? 'border-primary shadow-primary/10' : ''}`}>
+          <CardContent className="p-8 md:p-12">
+            {!isStudying ? (
+              <div className="max-w-md mx-auto space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Subject (Optional)</label>
+                  <select 
+                    className="w-full h-11 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={selectedSubject}
+                    onChange={(e) => {
+                      setSelectedSubject(e.target.value);
+                      setSelectedTopic('');
+                    }}
+                  >
+                    <option value="">-- General Study --</option>
+                    {subjects.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {selectedSubject && (
+                  <div className="animate-in fade-in slide-in-from-top-2">
+                    <label className="block text-sm font-semibold mb-2">Topic (Optional)</label>
+                    <select 
+                      className="w-full h-11 rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={selectedTopic}
+                      onChange={(e) => setSelectedTopic(e.target.value)}
+                    >
+                      <option value="">-- All Topics --</option>
+                      {filteredTopics.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <Button 
+                  size="lg"
+                  className="w-full h-14 text-lg font-semibold rounded-xl mt-4" 
+                  onClick={handleStart}
                 >
-                  <option value="">Any Topic</option>
-                  {availableTopics.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  <Play className="w-5 h-5 mr-2" />
+                  Begin Focus Session
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">
+                  {selectedTopic ? topics.find(t=>t.id === selectedTopic)?.name : selectedSubject ? subjects.find(s=>s.id === selectedSubject)?.name : 'General Focus Session'}
+                </h2>
+                
+                <div className="font-mono text-7xl md:text-9xl font-bold tracking-tight tabular-nums my-12 text-foreground">
+                  {formatTime(elapsedSeconds)}
+                </div>
+                
+                <Button 
+                  size="lg"
+                  variant="danger"
+                  className="h-14 px-12 text-lg font-semibold rounded-xl"
+                  onClick={handleStop}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  ) : (
+                    <Square className="w-5 h-5 mr-2 fill-current" />
+                  )}
+                  {saving ? 'Saving...' : 'End Session'}
+                </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
 
-            <div className="py-6 text-center">
-              <p className="text-sm font-medium text-gray-500 mb-2">Duration</p>
-              <div className="text-5xl font-light text-gray-900 tracking-tight font-mono">
-                00:00:00
-              </div>
-            </div>
-
-            <button
-              onClick={handleStart}
-              className="w-full mt-2 flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-base font-medium text-white transition-colors hover:bg-indigo-700 shadow-sm"
-            >
-              <Play className="mr-2 h-5 w-5" /> Start Studying
-            </button>
+      {/* Recent Sessions */}
+      {!isStudying && recentSessions.length > 0 && (
+        <div className="pt-8">
+          <div className="flex items-center gap-2 mb-6">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-xl font-semibold">Recent Sessions</h3>
           </div>
-        ) : (
-          <div className="py-8 space-y-8">
-            <div className="text-sm font-medium text-gray-500 uppercase tracking-widest">
-              {selectedTopic ? topics.find(t => t.id === selectedTopic)?.name : selectedSubject ? subjects.find(s => s.id === selectedSubject)?.name : 'General Study'}
-            </div>
-            
-            <div className="text-7xl font-light text-gray-900 tracking-tight font-mono">
-              {formatTime(elapsedSeconds)}
-            </div>
-            
-            <div className="flex justify-center">
-              <button
-                onClick={handleStopAndSave}
-                disabled={saving}
-                className="flex items-center justify-center rounded-full bg-red-100 text-red-600 px-8 py-3 font-medium transition-colors hover:bg-red-200 disabled:opacity-50"
-              >
-                {saving ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <Square className="mr-2 h-5 w-5 fill-current" />
-                )}
-                Finish Session
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* History Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">Session History</h2>
-          <Clock className="w-5 h-5 text-gray-400" />
-        </div>
-        
-        {recentSessions.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-sm">
-            No study sessions recorded yet.
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-50">
+          <div className="grid gap-3 sm:grid-cols-2">
             {recentSessions.map(session => (
-              <li key={session.id} className="p-6 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                <div>
-                  <div className="flex items-center text-gray-900 font-medium">
-                    {session.topic ? session.topic.name : 'General Study'}
+              <Card key={session.id} className="hover:bg-surface-hover/50 transition-colors">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="min-w-0 flex-1 mr-4">
+                    <p className="font-medium truncate text-foreground">
+                      {session.topic ? session.topic.name : 'General Study'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                      {new Date(session.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at {new Date(session.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                  <div className="text-sm text-gray-500 mt-1 flex items-center space-x-2">
-                    {session.topic?.subject && (
-                      <span className="flex items-center">
-                        <span 
-                          className="w-2 h-2 rounded-full mr-1.5"
-                          style={{ backgroundColor: session.topic.subject.color_code || '#6366f1' }}
-                        />
-                        {session.topic.subject.name}
-                        <span className="mx-2 text-gray-300">•</span>
-                      </span>
-                    )}
-                    <span>
-                      {new Date(session.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at {new Date(session.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-semibold text-gray-900">
-                    {session.duration_minutes} <span className="text-sm font-normal text-gray-500">min</span>
-                  </div>
-                  <div className="text-xs text-green-600 font-medium flex items-center justify-end mt-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    Completed
-                  </div>
-                </div>
-              </li>
+                  <Badge variant="secondary" className="whitespace-nowrap px-3 py-1">
+                    {session.duration_minutes} min
+                  </Badge>
+                </CardContent>
+              </Card>
             ))}
-          </ul>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
