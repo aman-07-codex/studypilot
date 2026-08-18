@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import {
+  getAllTopics,
   getTopics,
   createTopic,
   updateTopic,
@@ -30,5 +31,6 @@ subjectTopicsRouter.post("/", createTopic);
 
 export const topicRouter = Router();
 topicRouter.use(requireAuth);
+topicRouter.get("/", getAllTopics);
 topicRouter.put("/:id", updateTopic);
 topicRouter.delete("/:id", deleteTopic);

@@ -4,6 +4,17 @@ import { TopicService } from "../services/topicService";
 import { SubjectService } from "../services/subjectService";
 import { isValidUUID, isValidString } from "../utils/validation";
 
+export const getAllTopics = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const topics = await TopicService.getTopicsByUserId(userId);
+    res.json(topics);
+  } catch (error) {
+    console.error("Error fetching all topics:", error);
+    res.status(500).json({ error: "Failed to fetch topics" });
+  }
+};
+
 export const getTopics = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;

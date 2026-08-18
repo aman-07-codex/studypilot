@@ -10,6 +10,17 @@ const supabase = createClient(
 );
 
 export class TopicService {
+  static async getTopicsByUserId(userId: string): Promise<Topic[]> {
+    const { data, error } = await supabase
+      .from("topics")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+    return data;
+  }
+
   static async getTopicsBySubject(userId: string, subjectId: string): Promise<Topic[]> {
     const { data, error } = await supabase
       .from("topics")
