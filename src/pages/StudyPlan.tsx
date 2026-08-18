@@ -243,10 +243,23 @@ export default function StudyPlan() {
                                    task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
                                    'bg-green-50 text-green-700 border-green-100'
                                  }`}>
-                                   {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} priority
+                                   {task.priority.toUpperCase()} PRIORITY
                                  </span>
+                                 {task.is_completed && (
+                                   <span className="text-green-600 font-medium text-xs">Completed</span>
+                                 )}
                                </div>
                             </div>
+                            
+                            {!task.is_completed && (
+                              <button
+                                onClick={() => navigate(`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`)}
+                                className="ml-4 flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 whitespace-nowrap"
+                              >
+                                <Brain className="w-4 h-4 mr-1.5" />
+                                Start Studying
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>

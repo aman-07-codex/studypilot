@@ -23,6 +23,7 @@ export default function StudyRoom() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<StudySessionWithDetails[]>([]);
+  const [finishedSessionResult, setFinishedSessionResult] = useState<{ duration: number, topicName: string } | null>(null);
 
   useEffect(() => {
     loadInitialData();
@@ -100,6 +101,10 @@ export default function StudyRoom() {
       setIsStudying(false);
       setStartedAt(null);
       setElapsedSeconds(0);
+      setFinishedSessionResult({
+        duration: newSession.duration_minutes,
+        topicName: newSession.topic ? newSession.topic.name : (selectedSubject ? subjects.find(s => s.id === selectedSubject)?.name + " (General)" : 'General Study')
+      });
       
       // Optionally if prefilledTopicId was set (e.g. from AI task), we might want to auto-mark it complete?
       // Requirement: "Do not automatically mark an AI task complete merely because a timer starts. Only mark an AI task completed through an explicit user action."
@@ -146,8 +151,45 @@ export default function StudyRoom() {
 
       {/* Timer Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-        {!isStudying ? (
+        {finishedSessionResult ? (
+          <div className="max-w-md mx-auto py-8 space-y-6">
+            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Session Completed!</h2>
+              <p className="text-gray-500 mt-2">Great job focusing on your study goals.</p>
+            </div>
+            
+            <div className="bg-gray-50 rounded-xl p-6 text-left space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Duration</p>
+                <p className="text-xl font-bold text-gray-900">{finishedSessionResult.duration} minutes</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Topic</p>
+                <p className="text-lg font-medium text-gray-900">{finishedSessionResult.topicName}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <button
+                onClick={() => window.history.back()}
+                className="flex-1 flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Back to Study Plan
+              </button>
+              <button
+                onClick={() => setFinishedSessionResult(null)}
+                className="flex-1 flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              >
+                Start New Session
+              </button>
+            </div>
+          </div>
+        ) : !isStudying ? (
           <div className="max-w-md mx-auto space-y-5 text-left">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 text-center mb-6">Study Session</h2>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject (Optional)</label>
               <select
@@ -181,11 +223,18 @@ export default function StudyRoom() {
               </div>
             )}
 
+            <div className="py-6 text-center">
+              <p className="text-sm font-medium text-gray-500 mb-2">Duration</p>
+              <div className="text-5xl font-light text-gray-900 tracking-tight font-mono">
+                00:00:00
+              </div>
+            </div>
+
             <button
               onClick={handleStart}
-              className="w-full mt-6 flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-base font-medium text-white transition-colors hover:bg-indigo-700 shadow-sm"
+              className="w-full mt-2 flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-3 text-base font-medium text-white transition-colors hover:bg-indigo-700 shadow-sm"
             >
-              <Play className="mr-2 h-5 w-5" /> Start Session
+              <Play className="mr-2 h-5 w-5" /> Start Studying
             </button>
           </div>
         ) : (
@@ -209,7 +258,7 @@ export default function StudyRoom() {
                 ) : (
                   <Square className="mr-2 h-5 w-5 fill-current" />
                 )}
-                Stop & Save
+                Finish Session
               </button>
             </div>
           </div>

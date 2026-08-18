@@ -38,6 +38,27 @@ export function Dashboard() {
     loadDashboard();
   }, []);
 
+  const handleCompleteTask = async (taskId: string, isCompleted: boolean) => {
+    try {
+      await fetchWithAuth(`/api/study-plans/tasks/${taskId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_completed: isCompleted })
+      });
+      
+      // Update local state instead of full reload to be snappy
+      if (data && data.today_tasks) {
+        setData({
+          ...data,
+          today_tasks: data.today_tasks.map(t => 
+            t.id === taskId ? { ...t, is_completed: isCompleted } : t
+          )
+        });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to update task');
+    }
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -198,23 +219,40 @@ export function Dashboard() {
                       task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
                       'bg-green-50 text-green-700 border-green-100'
                     }`}>
-                      {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} priority
+                      {task.priority.toUpperCase()} PRIORITY
                     </span>
                   </div>
                 </div>
                 {!task.is_completed && (
-                  <Link
-                    to={`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`}
-                    className="ml-4 flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
-                  >
-                    <Book className="w-4 h-4 mr-1.5" />
-                    Study
-                  </Link>
+                  <div className="ml-4 flex items-center space-x-2">
+                    <Link
+                      to={`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`}
+                      className="flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                    >
+                      <Book className="w-4 h-4 mr-1.5" />
+                      Start Studying
+                    </Link>
+                    <button
+                      onClick={() => handleCompleteTask(task.id, true)}
+                      className="flex items-center rounded-lg bg-white border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1.5 text-gray-400" />
+                      Complete
+                    </button>
+                  </div>
                 )}
                 {task.is_completed && (
-                   <span className="ml-4 flex items-center text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
-                     <CheckCircle className="w-4 h-4 mr-1.5" /> Done
-                   </span>
+                   <div className="ml-4 flex items-center space-x-2">
+                     <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
+                       <CheckCircle className="w-4 h-4 mr-1.5" /> Done
+                     </span>
+                     <button
+                       onClick={() => handleCompleteTask(task.id, false)}
+                       className="text-xs text-gray-400 hover:text-gray-600 underline"
+                     >
+                       Undo
+                     </button>
+                   </div>
                 )}
               </div>
             ))}
