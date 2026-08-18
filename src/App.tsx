@@ -9,6 +9,7 @@ import Subjects from "./pages/Subjects";
 import SubjectDetail from "./pages/SubjectDetail";
 import Exams from "./pages/Exams";
 import StudyPlan from "./pages/StudyPlan";
+import StudyRoom from "./pages/StudyRoom";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="subjects/:subjectId" element={<SubjectDetail />} />
             <Route path="exams" element={<Exams />} />
             <Route path="exams/:examId/plan" element={<StudyPlan />} />
+            <Route path="study" element={<StudyRoom />} />
           </Route>
         </Routes>
       </BrowserRouter>

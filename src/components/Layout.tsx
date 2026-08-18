@@ -49,6 +49,17 @@ export function Layout() {
             <Calendar className="h-5 w-5" />
             <span className="font-medium">Exams</span>
           </Link>
+          <Link
+            to="/study"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+              location.pathname.startsWith("/study")
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <BookOpen className="h-5 w-5" />
+            <span className="font-medium">Study Room</span>
+          </Link>
         </div>
 
         <div className="border-t pt-4">

@@ -5,7 +5,11 @@ import { DashboardService } from "../services/dashboardService";
 export const getDashboard = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const data = await DashboardService.getDashboardData(userId);
+    let tzOffset = 0;
+    if (req.query.tzOffset && !isNaN(Number(req.query.tzOffset))) {
+      tzOffset = Number(req.query.tzOffset);
+    }
+    const data = await DashboardService.getDashboardData(userId, tzOffset);
     res.json(data);
   } catch (error) {
     console.error("Error fetching dashboard data:", error);

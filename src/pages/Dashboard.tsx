@@ -23,7 +23,8 @@ export function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-      const dashboardData = await fetchWithAuth("/api/dashboard");
+      const tzOffset = new Date().getTimezoneOffset();
+      const dashboardData = await fetchWithAuth(`/api/dashboard?tzOffset=${tzOffset}`);
       setData(dashboardData);
     } catch (err: any) {
       setError(err.message || "Failed to load dashboard data");
@@ -86,7 +87,7 @@ export function Dashboard() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
           <div className="p-3 bg-blue-50 rounded-xl">
             <Book className="h-6 w-6 text-blue-600" />
@@ -126,7 +127,88 @@ export function Dashboard() {
             <p className="text-2xl font-bold text-gray-900">{stats.overall_percentage}%</p>
           </div>
         </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
+          <div className="p-3 bg-indigo-50 rounded-xl">
+            <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Today's Study</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats.today_study_minutes} <span className="text-sm font-normal text-gray-500">min</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-4">
+          <div className="p-3 bg-red-50 rounded-xl">
+            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Study Streak</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats.current_streak} <span className="text-sm font-normal text-gray-500">days</span>
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Today's Tasks */}
+      {data.today_tasks && data.today_tasks.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Today's AI Study Plan
+          </h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-50">
+            {data.today_tasks.map(task => (
+              <div key={task.id} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                <div className="flex-1">
+                  <div className={`text-base font-medium ${task.is_completed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                    {task.topic ? task.topic.name : 'General Review & Practice'}
+                  </div>
+                  <div className="flex items-center space-x-3 mt-1.5 text-sm text-gray-500">
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-1 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {task.duration_minutes} min
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                      task.priority === 'high' ? 'bg-red-50 text-red-700 border-red-100' :
+                      task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                      'bg-green-50 text-green-700 border-green-100'
+                    }`}>
+                      {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} priority
+                    </span>
+                  </div>
+                </div>
+                {!task.is_completed && (
+                  <Link
+                    to={`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`}
+                    className="ml-4 flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                  >
+                    <Book className="w-4 h-4 mr-1.5" />
+                    Study
+                  </Link>
+                )}
+                {task.is_completed && (
+                   <span className="ml-4 flex items-center text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
+                     <CheckCircle className="w-4 h-4 mr-1.5" /> Done
+                   </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Subject Progress Section */}
       <div>

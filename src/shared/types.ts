@@ -34,6 +34,9 @@ export interface DashboardStats {
   total_topics: number;
   completed_topics: number;
   overall_percentage: number;
+  today_study_minutes: number;
+  today_sessions: number;
+  current_streak: number;
 }
 
 export interface DashboardSubject {
@@ -48,7 +51,29 @@ export interface DashboardSubject {
 export interface DashboardData {
   stats: DashboardStats;
   subjects: DashboardSubject[];
+  today_tasks?: (StudyTask & { topic?: { name: string; subject?: { name: string; color_code: string | null } } })[];
 }
+
+export interface StudySession {
+  id: string;
+  user_id: string;
+  topic_id: string | null;
+  duration_minutes: number;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface StudySessionWithDetails extends StudySession {
+  topic?: {
+    name: string;
+    subject: {
+      name: string;
+      color_code: string | null;
+    }
+  } | null;
+}
+
 
 export interface Exam {
   id: string;
