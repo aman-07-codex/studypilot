@@ -249,6 +249,19 @@ export default function StudyPlan() {
                                    <span className="text-green-600 font-medium text-xs">Completed</span>
                                  )}
                                </div>
+                               {task.subtopics && task.subtopics.length > 0 && (
+                                 <div className="mt-4">
+                                   <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Subtopics</h5>
+                                   <ul className="space-y-1">
+                                     {task.subtopics.map((subtopic, idx) => (
+                                       <li key={idx} className="text-sm text-gray-700 flex items-start">
+                                         <span className="text-gray-400 mr-2 mt-0.5">•</span>
+                                         {subtopic}
+                                       </li>
+                                     ))}
+                                   </ul>
+                                 </div>
+                               )}
                             </div>
                             
                             {!task.is_completed && (

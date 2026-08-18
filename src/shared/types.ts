@@ -110,6 +110,7 @@ export interface StudyTask {
   duration_minutes: number;
   priority: 'low' | 'medium' | 'high';
   is_completed: boolean;
+  subtopics: string[];
   created_at: string;
   updated_at: string;
 }

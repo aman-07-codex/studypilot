@@ -142,6 +142,9 @@ export class StudyPlanService {
       9. If no notes or PYQs are available, fall back gracefully to topic-based reasoning.
       10. You must respect the user's available study time and exam date.
       11. Priority should be one of: low, medium, high.
+      12. Identify useful subtopics (max 8) INSIDE each topic based PRIMARILY on the uploaded Notes and PYQs.
+      13. If there is no extracted material for a topic, subtopics MUST be an empty array []. Do not invent them.
+      14. Subtopics must be concise (max 120 chars), study-oriented, and explicitly present in the material.
 
       Generate a realistic study schedule leading up to the exam date.
       Assign topics to specific days. Do not generate tasks after the exam date.
@@ -162,7 +165,8 @@ export class StudyPlanService {
               topic_id: { type: Type.STRING, description: "The UUID of the topic from the provided list, or empty if it's a general review task." },
               task_date: { type: Type.STRING, description: "The date for this task in YYYY-MM-DD format." },
               duration_minutes: { type: Type.INTEGER, description: "Estimated duration in minutes (must be > 0)." },
-              priority: { type: Type.STRING, description: "One of: low, medium, high." }
+              priority: { type: Type.STRING, description: "One of: low, medium, high." },
+              subtopics: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Concise subtopics derived from materials, max 8. Empty array if no material." }
             },
             required: ["task_date", "duration_minutes", "priority"]
           }
@@ -208,12 +212,19 @@ export class StudyPlanService {
          task_date = new Date().toISOString().split('T')[0];
       }
 
+      let subtopics = Array.isArray(t.subtopics) ? t.subtopics : [];
+      subtopics = subtopics
+        .filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+        .map((s: string) => s.trim().substring(0, 120));
+      subtopics = [...new Set(subtopics)].slice(0, 8); // remove duplicates, max 8
+
       return {
         user_id: userId,
         topic_id: t.topic_id || null,
         task_date,
         duration_minutes,
         priority,
+        subtopics,
         is_completed: false
       };
     });

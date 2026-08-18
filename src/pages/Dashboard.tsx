@@ -222,9 +222,21 @@ export function Dashboard() {
                       {task.priority.toUpperCase()} PRIORITY
                     </span>
                   </div>
+                  {task.subtopics && task.subtopics.length > 0 && (
+                    <div className="mt-3 pl-1">
+                      <ul className="space-y-1">
+                        {task.subtopics.map((subtopic, idx) => (
+                          <li key={idx} className="text-xs text-gray-600 flex items-start">
+                            <span className="text-gray-400 mr-2 mt-0.5">•</span>
+                            <span className="truncate" title={subtopic}>{subtopic}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 {!task.is_completed && (
-                  <div className="ml-4 flex items-center space-x-2">
+                  <div className="ml-4 flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
                     <Link
                       to={`/study${task.topic_id ? `?topicId=${task.topic_id}` : ''}`}
                       className="flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
