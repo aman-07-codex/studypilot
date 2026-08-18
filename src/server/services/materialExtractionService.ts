@@ -1,7 +1,5 @@
 import * as mammoth from 'mammoth';
-import * as pdfParseModule from 'pdf-parse';
-
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+import { PDFParse } from 'pdf-parse';
 
 export class MaterialExtractionService {
   /**
@@ -15,8 +13,9 @@ export class MaterialExtractionService {
     let rawText = '';
 
     if (mimeType === 'application/pdf') {
-      const data = await pdfParse(buffer);
-      rawText = data.text;
+      const parser = new PDFParse({ data: buffer });
+      const result = await parser.getText();
+      rawText = result.text;
     } else if (
       mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
       mimeType === 'application/msword' // Also accept doc if it slips through somehow

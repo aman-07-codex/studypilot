@@ -1,0 +1,13 @@
+import { MaterialExtractionService } from './src/server/services/materialExtractionService.js';
+import fs from 'fs';
+
+async function run() {
+  const buffer = Buffer.from('JVBERi0xLjcNCiW1tbW1DQoxIDAgb2JqDQo8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+Pg0KZW5kb2JqDQoyIDAgb2JqDQo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+Pg0KZW5kb2JqDQozIDAgb2JqDQo8PC9UeXBlL1BhZ2UvTWVkaWFCb3hbMCAwIDU5NSA4NDJdL1BhcmVudCAyIDAgUi9SZXNvdXJjZXM8PC9Gb250PDwvRjEgNCAwIFI+Pj4+L0NvbnRlbnRzIDUgMCBSPj4NCmVuZG9iag0KNCAwIG9iag0KPDwvVHlwZS9Gb250L1N1YnR5cGUvVHlwZTEvQmFzZUZvbnQvSGVsdmV0aWNhPj4NCmVuZG9iag0KNSAwIG9iag0KPDwvTGVuZ3RoIDUzPj4NCnN0cmVhbQ0KQlQNCi9GMSAxMiBUZg0KMSAwIDAgMSAxMDAgNzAwIFRtDQooSGVsbG8gV29ybGQhKSBUag0KRVUNCmVuZHN0cmVhbQ0KZW5kb2JqDQp4cmVmDQowIDYNCjAwMDAwMDAwMDAgNjU1MzUgZiANCjAwMDAwMDAwMTcgMDAwMDAgbiANCjAwMDAwMDAwNjIgMDAwMDAgbiANCjAwMDAwMDAxMTkgMDAwMDAgbiANCjAwMDAwMDAyMjUgMDAwMDAgbiANCjAwMDAwMDAzMTMgMDAwMDAgbiANCnRyYWlsZXINCjw8L1NpemUgNi9Sb290IDEgMCBSPj4NCnN0YXJ0eHJlZg0KNDE1DQolJUVPRg==', 'base64');
+  try {
+    const res = await MaterialExtractionService.extractText(buffer, 'application/pdf');
+    console.log("Success:", res.text.substring(0, 50));
+  } catch (e: any) {
+    console.log("Error:", e.message);
+  }
+}
+run();
