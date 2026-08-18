@@ -132,4 +132,8 @@ export interface StudyMaterial {
   file_size: number;
   created_at: string;
   updated_at: string;
+  extraction_status: 'pending' | 'processing' | 'completed' | 'failed';
+  extraction_error?: string | null;
+  extracted_at?: string | null;
+  extraction_truncated?: boolean;
 }

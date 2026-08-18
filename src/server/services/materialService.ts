@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { StudyMaterial } from "../../shared/types";
+import { MaterialExtractionService } from "./materialExtractionService";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -95,13 +96,46 @@ export class MaterialService {
       throw new Error("Failed to save material metadata.");
     }
 
+    // Fire and forget text extraction (runs asynchronously so we don't block the HTTP response)
+    this.processExtractionAsync(material.id, userId, fileBuffer, fileType).catch(err => {
+      console.error(`Unhandled error during async extraction for ${material.id}:`, err);
+    });
+
     return material;
+  }
+
+  private static async processExtractionAsync(materialId: string, userId: string, buffer: Buffer, mimeType: string) {
+    try {
+      // Mark as processing
+      await supabase.from("study_materials").update({
+        extraction_status: 'processing'
+      }).eq('id', materialId).eq('user_id', userId);
+
+      // Extract text
+      const { text, truncated } = await MaterialExtractionService.extractText(buffer, mimeType);
+      
+      // Update with success
+      await supabase.from("study_materials").update({
+        extracted_text: text,
+        extraction_status: 'completed',
+        extracted_at: new Date().toISOString(),
+        extraction_truncated: truncated
+      }).eq('id', materialId).eq('user_id', userId);
+
+    } catch (err: any) {
+      // Update with failure
+      await supabase.from("study_materials").update({
+        extraction_status: 'failed',
+        extraction_error: err.message || 'Unknown extraction error',
+        extracted_at: new Date().toISOString()
+      }).eq('id', materialId).eq('user_id', userId);
+    }
   }
 
   static async getMaterials(userId: string, subjectId: string, topicId?: string): Promise<StudyMaterial[]> {
     let query = supabase
       .from("study_materials")
-      .select("*")
+      .select("id, user_id, subject_id, topic_id, material_type, title, file_name, file_path, file_type, file_size, created_at, updated_at, extraction_status, extraction_error, extracted_at, extraction_truncated")
       .eq("user_id", userId)
       .eq("subject_id", subjectId);
 

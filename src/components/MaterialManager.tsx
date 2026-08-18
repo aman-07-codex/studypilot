@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StudyMaterial } from '../shared/types';
 import { fetchWithAuth } from '../lib/apiClient';
-import { UploadCloud, FileText, File, Trash2, Download, Loader2, AlertCircle } from 'lucide-react';
+import { UploadCloud, FileText, File, Trash2, Download, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface MaterialManagerProps {
   subjectId: string;
@@ -120,6 +120,42 @@ export function MaterialManager({ subjectId, topicId, materialType, title = 'Mat
     return <FileText className="h-5 w-5 text-blue-500" />; // DOCX fallback
   };
 
+  const renderExtractionStatus = (status: string, error?: string | null) => {
+    switch (status) {
+      case 'processing':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Extracting text
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Text ready
+          </span>
+        );
+      case 'failed':
+        return (
+          <span 
+            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700"
+            title={error || 'Extraction failed'}
+          >
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Extraction failed
+          </span>
+        );
+      case 'pending':
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+            Pending
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
@@ -172,9 +208,12 @@ export function MaterialManager({ subjectId, topicId, materialType, title = 'Mat
                   {getFileIcon(material.file_type)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate" title={material.file_name}>
-                    {material.file_name}
-                  </p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium text-gray-900 truncate" title={material.file_name}>
+                      {material.file_name}
+                    </p>
+                    {renderExtractionStatus(material.extraction_status, material.extraction_error)}
+                  </div>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {formatFileSize(material.file_size)} • {new Date(material.created_at).toLocaleDateString()}
                   </p>
