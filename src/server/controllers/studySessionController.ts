@@ -52,3 +52,58 @@ export const getSessions = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: "Failed to fetch study sessions" });
   }
 };
+
+export const getSessionById = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ error: "Invalid session ID format" });
+    }
+
+    const session = await StudySessionService.getSessionById(userId, id);
+    res.json(session);
+  } catch (error: any) {
+    if (error.message === "Session not found") {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    console.error("Error fetching study session:", error);
+    res.status(500).json({ error: "Failed to fetch study session" });
+  }
+};
+
+export const deleteSession = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ error: "Invalid session ID format" });
+    }
+
+    await StudySessionService.deleteSession(userId, id);
+    res.status(204).send();
+  } catch (error: any) {
+    if (error.message === "Session not found") {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    console.error("Error deleting study session:", error);
+    res.status(500).json({ error: "Failed to delete study session" });
+  }
+};
+
+export const getHistoryStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    let tzOffset = 0;
+    if (req.query.tzOffset && !isNaN(Number(req.query.tzOffset))) {
+      tzOffset = Number(req.query.tzOffset);
+    }
+    const stats = await StudySessionService.getHistoryStats(userId, tzOffset);
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching study history stats:", error);
+    res.status(500).json({ error: "Failed to fetch study history stats" });
+  }
+};

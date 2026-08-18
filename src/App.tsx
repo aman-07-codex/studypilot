@@ -10,6 +10,7 @@ import SubjectDetail from "./pages/SubjectDetail";
 import Exams from "./pages/Exams";
 import StudyPlan from "./pages/StudyPlan";
 import StudyRoom from "./pages/StudyRoom";
+import StudyHistory from "./pages/StudyHistory";
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="exams" element={<Exams />} />
             <Route path="exams/:examId/plan" element={<StudyPlan />} />
             <Route path="study" element={<StudyRoom />} />
+            <Route path="study-history" element={<StudyHistory />} />
           </Route>
         </Routes>
       </BrowserRouter>

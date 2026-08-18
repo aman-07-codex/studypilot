@@ -10,7 +10,8 @@ import {
   TrendingUp, 
   AlertCircle,
   PlusCircle,
-  Loader2
+  Loader2,
+  History
 } from "lucide-react";
 
 export function Dashboard() {
@@ -77,13 +78,24 @@ export function Dashboard() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Welcome Section */}
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-          {getGreeting()}, {userName}
-        </h1>
-        <p className="text-gray-500 mt-2 text-lg">
-          Here's an overview of your study progress today.
-        </p>
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+            {getGreeting()}, {userName}
+          </h1>
+          <p className="text-gray-500 mt-2 text-lg">
+            Here's an overview of your study progress today.
+          </p>
+        </div>
+        <div className="mt-6 md:mt-0">
+          <Link
+            to="/study-history"
+            className="inline-flex items-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+          >
+            <History className="w-4 h-4 mr-2" />
+            View Study History
+          </Link>
+        </div>
       </div>
 
       {/* Statistics Cards */}
