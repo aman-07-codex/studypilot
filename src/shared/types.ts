@@ -66,3 +66,29 @@ export interface ExamWithSubject extends Exam {
     color_code: string | null;
   };
 }
+
+export interface StudyPlan {
+  id: string;
+  user_id: string;
+  exam_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudyTask {
+  id: string;
+  user_id: string;
+  study_plan_id: string;
+  topic_id: string | null;
+  task_date: string;
+  duration_minutes: number;
+  priority: 'low' | 'medium' | 'high';
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudyPlanWithDetails extends StudyPlan {
+  exam: ExamWithSubject;
+  tasks: (StudyTask & { topic?: { name: string } | null })[];
+}

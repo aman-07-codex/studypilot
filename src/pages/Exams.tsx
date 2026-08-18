@@ -412,6 +412,12 @@ const ExamCard: React.FC<{ exam: ExamWithSubject, onEdit: () => void, onDelete: 
         }`}>
           {daysRemaining}
         </span>
+        <a 
+          href={`/exams/${exam.id}/plan`}
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center"
+        >
+          Study Plan <Book className="w-4 h-4 ml-1" />
+        </a>
       </div>
     </div>
   );
