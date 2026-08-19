@@ -21,7 +21,11 @@ export function Login() {
     });
 
     if (error) {
-      setError(error.message);
+      if (error.message.includes("Email not confirmed")) {
+        setError("Please confirm your email address before signing in. Check your inbox for the confirmation link.");
+      } else {
+        setError(error.message);
+      }
       setLoading(false);
     } else {
       navigate("/");

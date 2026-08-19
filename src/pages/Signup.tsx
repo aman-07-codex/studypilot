@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Mail } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export function Signup() {
@@ -9,6 +9,7 @@ export function Signup() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfirmationSent, setIsConfirmationSent] = useState(false);
   const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -16,7 +17,7 @@ export function Signup() {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -29,11 +30,51 @@ export function Signup() {
     if (error) {
       setError(error.message);
       setLoading(false);
+    } else if (data?.user && data.session === null) {
+      // Email confirmation is required
+      setIsConfirmationSent(true);
+      setLoading(false);
     } else {
       // Supabase will automatically log them in or send confirmation email
       navigate("/");
     }
   };
+
+  if (isConfirmationSent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-sm border border-gray-100 text-center">
+          <div className="flex flex-col items-center">
+            <div className="rounded-full bg-green-50 p-3 mb-4">
+              <Mail className="h-8 w-8 text-green-600" />
+            </div>
+            <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900">
+              Check your email
+            </h2>
+            <p className="mt-4 text-sm text-gray-600">
+              Your account has been created. We've sent a confirmation link to:
+            </p>
+            <p className="mt-2 font-medium text-gray-900">
+              <a href={`mailto:${email}`} className="text-indigo-600 hover:text-indigo-500">
+                {email}
+              </a>
+            </p>
+            <p className="mt-4 text-sm text-gray-600">
+              Please check your inbox and confirm your email address before signing in.
+            </p>
+          </div>
+          <div className="mt-8">
+            <Link
+              to="/login"
+              className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              Back to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
